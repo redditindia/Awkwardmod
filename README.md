@@ -7,5 +7,6 @@ a bot for /r/india
 2. Auto-flairing posts when possible
 3. Commenting with article text when website is anti-adblock
 
+Command to run - Run as follows: python3 awkwardmod.py
 
 This bot is hosted on Heroku so os.environ() is used for getting configuration variables. You can add your own keys/configs here
