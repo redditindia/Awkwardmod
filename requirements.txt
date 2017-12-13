@@ -1,5 +1,5 @@
 praw==4.4.0
-newspaper3k==0.1.7
+newspaper3k==0.2.5
 MechanicalSoup==0.6.0
 langdetect==1.0.7
 unidecode==0.04.20
