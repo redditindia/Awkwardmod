@@ -5,3 +5,4 @@ langdetect==1.0.7
 unidecode==0.04.20
 html2text==2016.9.19
 readability-lxml==0.6.2
+tweepy==3.5.0
