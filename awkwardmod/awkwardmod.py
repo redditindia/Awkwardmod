@@ -117,7 +117,7 @@ def ndtv_anti_ad_block_text(article):
 
 
 def get_anti_ad_block_text(article, article_data, for_ndtv):
-    article_title = F"\n**{article_data['title']}** \n\n ______ "
+    article_title = "\n**{article_data['title']}** \n\n ______ "
     response = "{header}{title}\n{body}{footer}"
     if for_ndtv:
         article_body = ndtv_anti_ad_block_text(article)
