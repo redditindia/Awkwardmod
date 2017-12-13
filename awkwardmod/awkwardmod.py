@@ -15,6 +15,8 @@ from newspaper import Article
 from unidecode import unidecode
 
 import Antiblockdomains
+import tweepy
+
 
 
 # Export your reddit mod username and password as REDDIT_USERNAME and
@@ -26,6 +28,14 @@ import Antiblockdomains
 mercury_web_parser_key = os.environ['MERCURY_API_KEY']
 mercury_api_url = 'https://mercury.postlight.com/parser?url={}'
 
+
+# Twitter API Authenticatin using Oauth
+
+auth = tweepy.OAuthHandler(os.environ['twitter_consumer_key'], os.environ['twitter_consumer_key_secret'])
+auth.set_access_token(os.environ['twitter_access_token'], os.environ['twitter_access_token_secret'])
+api = tweepy.API(auth)
+
+
 # BEGIN TITLE VARS
 delay_base_min = 1
 ignored = []
@@ -33,6 +43,7 @@ not_flaied = []
 flairchecked = []
 last_purged = datetime.now()
 purge_interval_min = 60
+TwitterKeyword='awkmodtweetthis'
 # END TITLE VARS
 
 # BEGIN AUTO-FLAIR VARS
@@ -117,7 +128,7 @@ def ndtv_anti_ad_block_text(article):
 
 
 def get_anti_ad_block_text(article, article_data, for_ndtv):
-    article_title = F"\n**{article_data['title']}** \n\n ______ "
+    article_title = "\n**{article_data['title']}** \n\n ______ "
     response = "{header}{title}\n{body}{footer}"
     if for_ndtv:
         article_body = ndtv_anti_ad_block_text(article)
@@ -293,7 +304,15 @@ def basic_post_check(post):
         post.banned_by is None) and post.link_flair_text is not None and (
         post.id not in ignored) and post.num_reports == 0
 
-
+            
+def tweetthisbot(comment):
+    parent_post=comment.submission()
+	tweet_message= parent_post.title + parent_post.shortlink
+	parent_post.is_self is True or (parent_post.is_self is False and post.secure_media is not None)
+		print (tweet_message)	
+	else:
+		media_url = parent_post.url
+		tweet_message= 
 while True:
     r = praw.Reddit(client_id=os.environ['client_id'],
                     client_secret=os.environ['client_secret'],
@@ -338,6 +357,12 @@ while True:
                                 # returns 'title'
                                 original_title_check(post, article_data)
                     flair_check(post, r)
+            
+            #New twitter code 
+            for comment in r.subreddit('subreddit').stream.comments():
+                if TwitterKeyword in comment.body and comment.author == 'root_su':
+                    tweetthisbot(comment)
+                                        
             time.sleep(delay_base_min * 60)
     except Exception as e:
         print('Error on line {}'.format(
