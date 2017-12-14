@@ -1,113 +1,30 @@
-import os
 import re
 import sys
 import time
 from datetime import datetime
-from datetime import timedelta
 from collections import OrderedDict
 
 import praw
-import mechanicalsoup
 import requests
 import html2text
 from readability import Document
 from newspaper import Article
 from unidecode import unidecode
 
-import Antiblockdomains
+from messages import (anti_anti_ad_block_footer, anti_anti_ad_block_header,
+                      add_flair_message, remove_post_message)
+from settings import (ANTI_ANTI_AD_BLOCK_DOMAINS, DELAY_BASE_MIN, ALL_FLAIRS,
+                      TIME_UNTIL_REMOVE, TIME_UNTIL_MESSAGE, MERCURY_API_URL,
+                      PURGE_INTERVAL_MIN, LAST_PURGED, MERCURY_WEB_PARSER_KEY,
+                      REDDIT_USERNAME, REDDIT_PASSWORD, BOT_USER_AGENT,
+                      REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET)
+
+IGNORED = []
+NO_FLAIR = OrderedDict()
 
 
-# Export your reddit mod username and password as REDDIT_USERNAME and
-# REDDIT_PASSWORD as environment variables respectively.
-# Run as follows: python3 awkwardmod.py
-
-# adding for testing something
-
-mercury_web_parser_key = os.environ['MERCURY_API_KEY']
-mercury_api_url = 'https://mercury.postlight.com/parser?url={}'
-
-# BEGIN TITLE VARS
-delay_base_min = 1
-ignored = []
-not_flaied = []
-flairchecked = []
-last_purged = datetime.now()
-purge_interval_min = 60
-# END TITLE VARS
-
-# BEGIN AUTO-FLAIR VARS
-ask_flairs = ['[Askindia]', '[Askindia]', '[Ask]', '[AS]', '[Help]']
-spo_flairs = ['[Sports]', '[Sports]', '[SP]']
-tec_flairs = ['[Science/Technology]', '[Science Technology]', '[TECH]', '[TE]']
-foo_flairs = ['[Food]', '[Food]', '[FO]']
-npo_flairs = ['[Casual]', '[Non-Political]', '[NP]']
-pol_flairs = ['[Politics]', '[Politics]', '[P]']
-red_flairs = ['[[R]eddiquette]', '[Reddiquette]', '[R]']
-all_flairs = [ask_flairs, spo_flairs, tec_flairs, foo_flairs, npo_flairs,
-              pol_flairs, red_flairs]
-# END AUTO-FLAIR VARS
-
-# BEGIN FLAIR VARS
-time_until_message = 1 * 60
-time_until_remove = 10 * 60
-h_time_until_remove = str(timedelta(seconds=time_until_remove))
-max_retries = 3
-no_flair = OrderedDict()
-anti_anti_ad_block_domains = Antiblockdomains.anti_anti_ad_block_domains
-# END FLAIR VARS
-
-'''--------------Messages-------------------'''
-footer_message = ("\n\n>**What is a Flair?**\n\n>A flair basically categorizes"
-                  " your post in one of the pre-existing categories on "
-                  "/r/india. Once you make a submission, you'll notice a red "
-                  "button which says *Flair your post* . Click on it and "
-                  "choose a flair according to the submission's theme, then "
-                  "hit Save.\n\n>* If you want a civil and focused discussion "
-                  "with NO off-topic comments, choose \"[R]ediquette\". We do "
-                  "not allow trolling and other unnecessary behaviour in [R] "
-                  "threads.\n* If you are posting from a handheld device, "
-                  "append [NP] for non-political, [P] for political and [R] to"
-                  " the title of the post and our bot will flair it "
-                  "accordingly.\n* **Example**: "
-                  "http://i.imgur.com/FKs9uVI.png\n\n---\n\n"
-                  "^(I am just a bot and cannot reply to your queries. Send a)"
-                  " [^*modmail*](http://www.reddit.com/message/compose?"
-                  "to=%2Fr%2Findia&subject=Flair+Bot) ^(if you have any "
-                  "doubts.)")
-
-add_flair_message = ("Your post does not have any flair and will soon be "
-                     "removed if it remains so.\n\nPlease add flair to your "
-                     "post. If you do not add flair within **{}**, you will "
-                     "have to resubmit your post. ".format(
-                         h_time_until_remove, footer_message))
-
-remove_post_message = ("Your post does not have any flair after the allotted "
-                       "{} and has therefore been removed. Feel free to "
-                       "resubmit it and remember to flair it once it is "
-                       "posted.".format(h_time_until_remove, footer_message))
-
-anti_anti_ad_block_header = ("^This ^article ^is ^adblocker ^unfriendly, "
-                             "^following ^is ^the ^text ^of ^the ^article. "
-                             "\n\n ______ ")
-
-anti_anti_ad_block_footer = ("\n\n ______ \n ^I ^am ^just ^a ^bot, ^I ^cannot "
-                             "^reply ^to ^your ^queries. ^Send ^a "
-                             "^[*modmail*](http://www.reddit.com/message/"
-                             "compose?to=%2Fr%2Findia&subject=Anti+Anti+Ad+"
-                             "Block+Bot) ^if ^you ^have ^any ^queries. ^Please"
-                             " ^provide ^a ^link ^to ^your ^submission. ^We "
-                             "^would ^not ^be ^able ^to ^help ^you ^without "
-                             "^a ^link.")
-
-
-'''-----------------Messages Over------------'''
-
-
-def get_browser():
-    br = mechanicalsoup.Browser()
-    return br
-
-
+# Extracts the content from NDTV and Newslaundry sites for anti ad block
+# comment. It is used by `get_anti_ad_block_text`.
 def ndtv_anti_ad_block_text(article):
     doc = Document(article.html)
     text_maker = html2text.HTML2Text()
@@ -116,8 +33,10 @@ def ndtv_anti_ad_block_text(article):
     return text_maker.handle(doc.summary())
 
 
+# Constructs the comment with the content from ANTI_ANTI_AD_BLOCK_DOMAINS
+# submissions
 def get_anti_ad_block_text(article, article_data, for_ndtv):
-    article_title = "\n**{article_data['title']}** \n\n ______ "
+    article_title = F"\n**{article_data['title']}** \n\n ______ "
     response = "{header}{title}\n{body}{footer}"
     if for_ndtv:
         article_body = ndtv_anti_ad_block_text(article)
@@ -128,10 +47,13 @@ def get_anti_ad_block_text(article, article_data, for_ndtv):
         body=article_body, footer=anti_anti_ad_block_footer)
 
 
+# If the submission's link belongs to any of the domains in
+# ANTI_ANTI_AD_BLOCK_DOMAINS, then extracts the data from the link and posts
+# as a comment
 def anti_anti_ad_block(article_data, post):
     try:
         domain = article_data['domain']
-        if domain in anti_anti_ad_block_domains:
+        if domain in ANTI_ANTI_AD_BLOCK_DOMAINS:
             article = Article(post.url)
             article.download()
             article.parse()
@@ -161,15 +83,16 @@ def anti_anti_ad_block(article_data, post):
                           "length".format(post))
     except Exception as e:
         print("Error from Mercuty on {0.shortlink} of {0.author}".format(post))
-        ignored.append(post.id)
+        IGNORED.append(post.id)
         pass
 
 
+# Uses https://mercury.postlight.com to extract the data from the article
 def get_article_data(post):
     try:
         request_header = {'content-type': 'application/json',
-                          'x-api-key': mercury_web_parser_key}
-        r = requests.get(mercury_api_url.format(post.url),
+                          'x-api-key': MERCURY_WEB_PARSER_KEY}
+        r = requests.get(MERCURY_API_URL.format(post.url),
                          headers=request_header)
         if r.status_code == requests.codes.ok:
             article_data = r.json()
@@ -179,14 +102,16 @@ def get_article_data(post):
             print("Mercury Web Parser Failed for {0.shortlink} of "
                   "{0.author} ".format(post))
             print("Status Code", r.status_code)
-            ignored.append(post.id)
+            IGNORED.append(post.id)
     except Exception as e:
         print('Could not fetch data for the article {}'.format(
             sys.exc_info()[-1].tb_lineno), type(e), e)
         print("RESET", "due to", e)
-        ignored.append(post.id)
+        IGNORED.append(post.id)
 
 
+# Checks if the submission title matches with the link's title, if not reports
+# the submission
 def original_title_check(post, article_data):
     # Below websites titles are usually different than actual title
     ignore_title_check_domains = ['newslaundry.com', 'ETtech.com']
@@ -234,12 +159,14 @@ def original_title_check(post, article_data):
         print("Error on line {}".format(
             sys.exc_info()[-1].tb_lineno), type(e), e)
         print("Ignored", post.shortlink, "due to", e)
-        ignored.append(post.id)
+        IGNORED.append(post.id)
 
 
+# Checks if the post can be auto flaired by checking flair mentions in the
+# post title like '[NP]', [Ask] etc
 def auto_flair(post):
     if (post.link_flair_text is None and post.banned_by is not None):
-        for flairs in all_flairs:
+        for flairs in ALL_FLAIRS:
             for flair in flairs:
                 if flair.lower() in post.title.lower():
                     flair_text = flairs[0][1:-1]
@@ -249,30 +176,30 @@ def auto_flair(post):
     return False
 
 
+# Checks if a post can be auto flaired using `auto_flair` function, if not
+# messages the OP to flair the post within TIME_UNTIL_REMOVE seconds
 def flair_check(post, r):
     if (auto_flair(post) is True):
         return
-    # If message has no flair
+    # If message has no flair, warn OP to add a flair
     if (post.link_flair_text is None and str(post.subreddit) == 'india'):
-        if((time.time() - post.created_utc) > time_until_message) and (
-                post.id not in no_flair.values()):
+        if((time.time() - post.created_utc) > TIME_UNTIL_MESSAGE) and (
+                post.id not in NO_FLAIR.values()):
             final_add_flair_message = add_flair_message.format(
                 post_url=post.shortlink)
             print("Sent Message to : {}".format(post.author))
             print("for above post {0.shortlink}".format(post))
             r.redditor(post.author.name).message(
                 post.shortlink, final_add_flair_message)
-            # comment = post.reply(final_add_flair_message)
-            # comment.mod.distinguish(sticky=True)
-            no_flair[post.shortlink] = post.id
-            # flairchecked_comment.append(comment.id)
-            # flaiedchecked_post.append(post.id)
+            NO_FLAIR[post.shortlink] = post.id
         no_flair_timeout_check(post)
 
 
+# Checks if OP has added a flair to the post, if not and if `TIME_UNTIL_REMOVE`
+# has elapsed, removes the post
 def no_flair_timeout_check(post):
     if(str(post.subreddit) == 'india'):
-        if((time.time() - post.created_utc) > time_until_remove):
+        if((time.time() - post.created_utc) > TIME_UNTIL_REMOVE):
             final_remove_post_message = remove_post_message.format(
                 post_url=post.shortlink)
             comment = post.reply(final_remove_post_message)
@@ -280,51 +207,50 @@ def no_flair_timeout_check(post):
             post.mod.remove()
             print("Removed {0.shortlink} of {0.author}s for no flair".format(
                 post))
-            for k in list(no_flair.keys()):
-                if no_flair[k] == post.id:
+            for k in list(NO_FLAIR.keys()):
+                if NO_FLAIR[k] == post.id:
                     print("Popped the post")
-                    no_flair.pop(k)
+                    NO_FLAIR.pop(k)
     else:
-        ignored.append(post.id)
+        IGNORED.append(post.id)
 
 
+# Checks if the post requires moderation by bot or not
 def basic_post_check(post):
     return post.is_self is False and post.secure_media is None and (
         post.banned_by is None) and post.link_flair_text is not None and (
-        post.id not in ignored) and post.num_reports == 0
+        post.id not in IGNORED) and post.num_reports == 0
 
 
 while True:
-    r = praw.Reddit(client_id=os.environ['client_id'],
-                    client_secret=os.environ['client_secret'],
-                    password=os.environ['REDDIT_PASSWORD'],
-                    user_agent=os.environ['useragent'],
-                    username=os.environ['REDDIT_USERNAME'])
+    r = praw.Reddit(client_id=REDDIT_CLIENT_ID, password=REDDIT_PASSWORD,
+                    client_secret=REDDIT_CLIENT_SECRET,
+                    user_agent=BOT_USER_AGENT, username=REDDIT_USERNAME)
     print("Logged In as ", r.user.me())
     subreddit = r.subreddit('india+gstindia')
     print("Found list of submissions")
     try:
         while True:
-            if (datetime.now() - last_purged).seconds > (
-                    purge_interval_min * 60):
-                del ignored[:]
-                print("Purged ignored", ignored)
-                last_purged = datetime.now()
+            if (datetime.now() - LAST_PURGED).seconds > (
+                    PURGE_INTERVAL_MIN * 60):
+                del IGNORED[:]
+                print("Purged ignored", IGNORED)
+                LAST_PURGED = datetime.now()
             print("Checking the new submissions since the last run!")
             unmoderated = [x for x in subreddit.mod.unmoderated(limit=None)]
 
             for post in unmoderated:
-                if (post.is_self is False and post.id not in ignored and (
+                if (post.is_self is False and post.id not in IGNORED and (
                         post.secure_media is None) and (
                             post.subreddit == 'gstindia')):
                     article_data = get_article_data(post)
                     if article_data is not None:
                         anti_anti_ad_block(article_data, post)
-                        ignored.append(post.id)
+                        IGNORED.append(post.id)
                         post.mod.approve()
                         continue
                     else:
-                        ignored.append(post.id)
+                        IGNORED.append(post.id)
                 else:
                     if basic_post_check(post):
                         article_data = get_article_data(post)
@@ -338,9 +264,9 @@ while True:
                                 # returns 'title'
                                 original_title_check(post, article_data)
                     flair_check(post, r)
-            time.sleep(delay_base_min * 60)
+            time.sleep(DELAY_BASE_MIN * 60)
     except Exception as e:
         print('Error on line {}'.format(
             sys.exc_info()[-1].tb_lineno), type(e), e)
         print("RESET due to: ", e)
-        time.sleep(delay_base_min * 60)
+        time.sleep(DELAY_BASE_MIN * 60)
