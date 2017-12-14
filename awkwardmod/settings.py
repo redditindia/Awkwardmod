@@ -1,5 +1,5 @@
 import os
-import datetime
+from datetime import datetime
 from datetime import timedelta
 
 REDDIT_CLIENT_ID = os.environ['client_id'],
