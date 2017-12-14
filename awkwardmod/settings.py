@@ -2,11 +2,11 @@ import os
 from datetime import datetime
 from datetime import timedelta
 
-REDDIT_CLIENT_ID = os.environ['client_id'],
-REDDIT_CLIENT_SECRET = os.environ['client_secret'],
+REDDIT_CLIENT_ID = os.environ['client_id']
+REDDIT_CLIENT_SECRET = os.environ['client_secret']
 REDDIT_USERNAME = os.environ['REDDIT_USERNAME']
-REDDIT_PASSWORD = os.environ['REDDIT_PASSWORD'],
-BOT_USER_AGENT = os.environ['useragent'],
+REDDIT_PASSWORD = os.environ['REDDIT_PASSWORD']
+BOT_USER_AGENT = os.environ['useragent']
 MERCURY_WEB_PARSER_KEY = os.environ['MERCURY_API_KEY']
 
 ANTI_ANTI_AD_BLOCK_DOMAINS = ['www.google.com', 'www.yahoo.com']
