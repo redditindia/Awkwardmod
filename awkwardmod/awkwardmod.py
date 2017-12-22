@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 from collections import OrderedDict
 from perspective import Perspective
+
+	
 import praw
 import requests
 import html2text
@@ -17,7 +19,7 @@ from settings import (ANTI_ANTI_AD_BLOCK_DOMAINS, DELAY_BASE_MIN, ALL_FLAIRS,
                       TIME_UNTIL_REMOVE, TIME_UNTIL_MESSAGE, MERCURY_API_URL,
                       PURGE_INTERVAL_MIN, LAST_PURGED, MERCURY_WEB_PARSER_KEY,
                       REDDIT_USERNAME, REDDIT_PASSWORD, BOT_USER_AGENT,
-                      REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,PPERSPECTIVE_API_KEY,PPERSPECTIVE_API_URL)
+                      REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,PERSPECTIVE_API_KEY)
 
 IGNORED = []
 NO_FLAIR = OrderedDict()
@@ -226,8 +228,9 @@ while True:
     r = praw.Reddit(client_id=REDDIT_CLIENT_ID, password=REDDIT_PASSWORD,
                     client_secret=REDDIT_CLIENT_SECRET,
                     user_agent=BOT_USER_AGENT, username=REDDIT_USERNAME)
-	perspective = Perspective(PPERSPECTIVE_API_KEY)
     print("Logged In as ", r.user.me())
+	perspective_api = Perspective(PPERSPECTIVE_API_KEY)
+    print("Logged In Perspective")
     subreddit = r.subreddit('india+gstindia')
     print("Found list of submissions")
     try:
@@ -239,7 +242,7 @@ while True:
                 LAST_PURGED = datetime.now()
             print("Checking the new submissions and reported comments since the last run!")
             unmoderated = [x for x in subreddit.mod.unmoderated(limit=None)]
-			
+            
             for post in unmoderated:
                 if (post.is_self is False and post.id not in IGNORED and (
                         post.secure_media is None) and (
@@ -265,19 +268,19 @@ while True:
                                 # returns 'title'
                                 original_title_check(post, article_data)
                     flair_check(post, r)
-			
-			#Checking modqueue comments and their toxicity
-			
-			for comment in r.subreddit('india').mod.modqueue(only= 'comments', limit=None):
-				If comment.id not in IGNORED:
-				    toxicity_score = perspective.score(comment.body, tests=["TOXICITY"])
-				        if toxicity_score > 0.8:
-							comment.report("Comment is likely to be toxic")
-							print("Reported {0.shortlink} of {0.author}'s".format(comment))
-							IGNORED.append(comment.id)
-						else
-							IGNORED.append(comment.id)
-		
+            
+            #Checking modqueue comments and their toxicity
+            comments  = [x for x in r.subreddit('india').mod.modqueue(only= 'comments', limit=None)]
+            for comment in comments:
+                if comment.id not in IGNORED:
+                    toxicity_score = perspective_api.score(comment.body, tests=["TOXICITY"])
+                    if toxicity_score > 0.8:
+                        comment.report("Comment is likely to be toxic")
+                        print("Reported {0.shortlink} of {0.author}'s".format(comment))
+                        IGNORED.append(comment.id)
+                    else:
+                        IGNORED.append(comment.id)
+        
             time.sleep(DELAY_BASE_MIN * 60)
     except Exception as e:
         print('Error on line {}'.format(
