@@ -12,6 +12,7 @@ PPERSPECTIVE_API_KEY =  os.environ['PERSPECTIVE_API_KEY']
 
 ANTI_ANTI_AD_BLOCK_DOMAINS = ['www.google.com', 'www.yahoo.com']
 MERCURY_API_URL = 'https://mercury.postlight.com/parser?url={}'
+PERSPECTIVE_API_URL = 'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?'
 DELAY_BASE_MIN = 1
 LAST_PURGED = datetime.now()
 PURGE_INTERVAL_MIN = 60
