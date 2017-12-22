@@ -8,6 +8,7 @@ REDDIT_USERNAME = os.environ['REDDIT_USERNAME']
 REDDIT_PASSWORD = os.environ['REDDIT_PASSWORD']
 BOT_USER_AGENT = os.environ['useragent']
 MERCURY_WEB_PARSER_KEY = os.environ['MERCURY_API_KEY']
+PPERSPECTIVE_API_KEY =  os.environ['PERSPECTIVE_API_KEY']
 
 ANTI_ANTI_AD_BLOCK_DOMAINS = ['www.google.com', 'www.yahoo.com']
 MERCURY_API_URL = 'https://mercury.postlight.com/parser?url={}'
